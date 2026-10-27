@@ -1051,9 +1051,7 @@ impl Parser<'_> {
             return Ok((continue_with_path_start, HostInternal::None, remaining));
         } else {
             match Host::parse_cow(host_str)? {
-                Host::Domain(ref d) if d == "localhost" => {
-                    HostInternal::None
-                }
+                Host::Domain(ref d) if d == "localhost" => HostInternal::None,
                 host => {
                     write!(&mut self.serialization, "{host}").unwrap();
                     host.into()
@@ -1150,21 +1148,11 @@ impl Parser<'_> {
 
             // Consume the initial path separator if one is present.
             if maybe_c == Some('/') || maybe_c == Some('\\') {
-                return self.parse_path(
-                    scheme_type,
-                    has_host,
-                    path_start,
-                    remaining,
-                );
+                return self.parse_path(scheme_type, has_host, path_start, remaining);
             }
 
             // Otherwise, preserve the current input character.
-            return self.parse_path(
-                scheme_type,
-                has_host,
-                path_start,
-                input,
-            );
+            return self.parse_path(scheme_type, has_host, path_start, input);
         } else if maybe_c == Some('?') || maybe_c == Some('#') {
             // Otherwise, if state override is not given and c is U+003F (?),
             // set url’s query to the empty string and state to query state.
