@@ -343,6 +343,163 @@ fn test_relative_separator_diagnostic_order() {
     }
 }
 
+// Resolution expectations follow the WHATWG file/file-slash states. Callback
+// sequences specify rust-url's existing diagnostic contract, not WPT metadata.
+fn assert_file_resolution(
+    base: &Url,
+    input: &str,
+    expected: Result<&str, url::ParseError>,
+    diagnostics: &[url::SyntaxViolation],
+) {
+    let original = base.clone();
+    let actual = parse_relative_with_diagnostics(base, input);
+    assert_eq!(actual.1, diagnostics, "{input:?} against {base}");
+    assert_eq!(
+        actual.0.as_ref().map(Url::as_str).map_err(|error| *error),
+        expected,
+        "{input:?} against {base}"
+    );
+    for _ in 0..3 {
+        assert_eq!(parse_relative_with_diagnostics(base, input), actual);
+        assert_eq!(base, &original);
+    }
+    assert_eq!(base.join(input), actual.0, "callback isolation");
+    base.check_invariants().unwrap();
+    if let Ok(url) = actual.0 {
+        url.check_invariants().unwrap();
+        let reparsed = Url::parse(url.as_str()).unwrap();
+        reparsed.check_invariants().unwrap();
+        assert_eq!(url, reparsed, "serialization fixed point");
+        assert_eq!(url.host(), reparsed.host());
+        assert_eq!(url.path(), reparsed.path());
+        assert_eq!(url.query(), reparsed.query());
+        assert_eq!(url.fragment(), reparsed.fragment());
+    }
+}
+
+#[test]
+fn test_file_resolution_host_inheritance_wpt() {
+    use url::SyntaxViolation::{
+        Backslash, ExpectedFileDoubleSlash, NonUrlCodePoint, TabOrNewlineIgnored,
+    };
+    // Exact identities from WPT c48d58747e1f211527fb695fd60548a997fae617,
+    // url/resources/urltestdata.json: 613, 645-651, 658, 666-669.
+    let cases: &[(&str, &str, &str, &[url::SyntaxViolation])] = &[
+        ("file://h/C:/a/b", "/", "file://h/C:/", &[]),
+        (
+            "file://host/dir/file",
+            "C|",
+            "file://host/C:",
+            &[NonUrlCodePoint],
+        ),
+        (
+            "file://host/D:/dir1/dir2/file",
+            "C|",
+            "file://host/C:",
+            &[NonUrlCodePoint],
+        ),
+        (
+            "file://host/dir/file",
+            "C|#",
+            "file://host/C:#",
+            &[NonUrlCodePoint],
+        ),
+        (
+            "file://host/dir/file",
+            "C|?",
+            "file://host/C:?",
+            &[NonUrlCodePoint],
+        ),
+        (
+            "file://host/dir/file",
+            "C|/",
+            "file://host/C:/",
+            &[NonUrlCodePoint],
+        ),
+        (
+            "file://host/dir/file",
+            "C|\n/",
+            "file://host/C:/",
+            &[TabOrNewlineIgnored, NonUrlCodePoint],
+        ),
+        (
+            "file://host/dir/file",
+            "C|\\",
+            "file://host/C:/",
+            &[NonUrlCodePoint, Backslash],
+        ),
+        (
+            "file://host/path",
+            "/c:/foo/bar",
+            "file://host/c:/foo/bar",
+            &[],
+        ),
+        ("file://host/", "C|/", "file://host/C:/", &[NonUrlCodePoint]),
+        ("file://host/", "/C:/", "file://host/C:/", &[]),
+        (
+            "file://host/",
+            "file:C:/",
+            "file://host/C:/",
+            &[ExpectedFileDoubleSlash],
+        ),
+        (
+            "file://host/",
+            "file:/C:/",
+            "file://host/C:/",
+            &[ExpectedFileDoubleSlash],
+        ),
+    ];
+    for &(base, input, expected, diagnostics) in cases {
+        assert_file_resolution(&Url::parse(base).unwrap(), input, Ok(expected), diagnostics);
+    }
+}
+
+#[test]
+fn test_file_resolution_host_inheritance_controls() {
+    use url::SyntaxViolation::{Backslash, ExpectedFileDoubleSlash, NonUrlCodePoint};
+    // Host inheritance and drive/path selection are independent on every OS.
+    // The expected components below follow file and file-slash state rules.
+    for (authored, host) in [
+        ("", ""),
+        ("localhost", ""),
+        ("host", "host"),
+        ("127.0.0.1", "127.0.0.1"),
+        ("[::1]", "[::1]"),
+    ] {
+        let base = Url::parse(&format!("file://{authored}/D:/dir/file?old#old")).unwrap();
+        for (input, path, diagnostics) in [
+            ("/leaf", "/D:/leaf", &[][..]),
+            ("/c:/leaf", "/c:/leaf", &[][..]),
+            ("c|/leaf", "/c:/leaf", &[NonUrlCodePoint][..]),
+            ("C|\\leaf", "/C:/leaf", &[NonUrlCodePoint, Backslash][..]),
+            ("file:C:/leaf", "/C:/leaf", &[ExpectedFileDoubleSlash][..]),
+            ("file:/C:/leaf", "/C:/leaf", &[ExpectedFileDoubleSlash][..]),
+            ("/", "/D:/", &[][..]),
+            ("?", "/D:/dir/file?", &[][..]),
+            ("#", "/D:/dir/file?old#", &[][..]),
+            ("", "/D:/dir/file?old", &[][..]),
+        ] {
+            let expected = format!("file://{host}{path}");
+            assert_file_resolution(&base, input, Ok(&expected), diagnostics);
+        }
+    }
+    // Explicit file authorities are handled before inheritance, even when
+    // the base has a host and a normalized drive segment.
+    let base = Url::parse("file://host/D:/dir/file?old#old").unwrap();
+    for (input, expected) in [
+        ("//other/path", "file://other/path"),
+        ("///path", "file:///path"),
+        ("//localhost/path", "file:///path"),
+        ("file://other/path", "file://other/path"),
+    ] {
+        assert_file_resolution(&base, input, Ok(expected), &[]);
+    }
+    // Fatal authority errors remain failures rather than inheriting the base.
+    for input in ["//user:pass@other/path", "//other:80/path"] {
+        assert_file_resolution(&base, input, Err(url::ParseError::IdnaError), &[]);
+    }
+}
+
 #[test]
 fn test_strip_trailing_spaces_from_opaque_path() {
     let mut url: Url = "data:space   ?query".parse().unwrap();

@@ -1,16 +1,3 @@
-</> against <file://h/C:/a/b>
-<C|> against <file://host/dir/file>
-<C|> against <file://host/D:/dir1/dir2/file>
-<C|#> against <file://host/dir/file>
-<C|?> against <file://host/dir/file>
-<C|/> against <file://host/dir/file>
-<C|\n/> against <file://host/dir/file>
-<C|\\> against <file://host/dir/file>
-</c:/foo/bar> against <file://host/path>
-<C|/> against <file://host/>
-</C:/> against <file://host/>
-<file:C:/> against <file://host/>
-<file:/C:/> against <file://host/>
 <non-spec:/.//p> set hostname to <h>
 <non-spec:/.//p> set hostname to <>
 <foo:///some/path> set pathname to <>
