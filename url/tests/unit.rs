@@ -67,6 +67,63 @@ fn test_relative_empty() {
     assert_eq!(url.as_str(), "sc://%C3%B1");
 }
 
+#[test]
+fn test_path_shortening_protects_only_a_file_root_drive() {
+    // WHATWG shorten-a-urls-path protects a normalized drive only when it is
+    // the sole segment of a file path. Later drive-like segments are ordinary.
+    for (input, expected) in [
+        ("file:///C:/../a", "file:///C:/a"),
+        ("file:///C:/..", "file:///C:/"),
+        ("file:///C:/../", "file:///C:/"),
+        ("file:///C:/../../a", "file:///C:/a"),
+        ("file:///x/C:/../a", "file:///x/a"),
+        ("file:///x/C:/..", "file:///x/"),
+        ("file:////C:/../a", "file:////a"),
+        ("file:////C:/..", "file:////"),
+        ("file://host//C|/../a", "file://host//a"),
+        ("file:///x/C:/%2e%2e/a", "file:///x/a"),
+        ("http://host/C:/../a", "http://host/a"),
+        ("http://host/C:/..", "http://host/"),
+        ("custom://host/C:/../a", "custom://host/a"),
+    ] {
+        let url = Url::parse(input).unwrap();
+        assert_eq!(url.as_str(), expected, "{input:?}");
+        url.check_invariants().unwrap();
+        assert_eq!(Url::parse(url.as_str()).unwrap(), url);
+    }
+}
+
+#[test]
+fn test_relative_path_shortening_drive_segments() {
+    // First case: WPT c48d58747e1f211527fb695fd60548a997fae617,
+    // url/resources/urltestdata.json, index 659. Remaining expectations follow
+    // the same shortening algorithm for file and non-file hierarchical URLs.
+    for (base, input, expected) in [
+        ("abc://x/y/z/C:/", "..", "abc://x/y/z/"),
+        ("abc://x/C:/", "../leaf", "abc://x/leaf"),
+        ("abc://x/C:", "leaf", "abc://x/leaf"),
+        ("abc:/C:/", "..", "abc:/"),
+        ("http://host/C:/", "..", "http://host/"),
+        ("file:///C:/", "..", "file:///C:/"),
+        ("file:///C:", "leaf", "file:///C:/leaf"),
+        ("file:///x/C:/", "..", "file:///x/"),
+        ("file:///x/C:", "leaf", "file:///x/leaf"),
+        ("file:////C:/", "..", "file:////"),
+    ] {
+        let base = Url::parse(base).unwrap();
+        let original = base.clone();
+        let (result, diagnostics) = parse_relative_with_diagnostics(&base, input);
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), expected, "{input:?} against {base}");
+        assert_eq!(diagnostics, [], "{input:?} against {base}");
+        assert_eq!(base, original);
+        assert_eq!(base.join(input).unwrap(), url);
+        base.check_invariants().unwrap();
+        url.check_invariants().unwrap();
+        assert_eq!(Url::parse(url.as_str()).unwrap(), url);
+    }
+}
+
 fn parse_relative_with_diagnostics(
     base: &Url,
     input: &str,
