@@ -558,13 +558,133 @@ fn test_file_resolution_host_inheritance_controls() {
 }
 
 #[test]
+fn test_opaque_path_space_boundary() {
+    use url::SyntaxViolation::{C0SpaceIgnored, NonUrlCodePoint, TabOrNewlineIgnored};
+
+    // The first five identities are WPT c48d58747e1f211527fb695fd60548a997fae617,
+    // url/resources/urltestdata.json, indices 292, 293, 296-298. Diagnostics
+    // additionally specify rust-url's callback contract, not WPT metadata.
+    let cases: &[(&str, &str, &[url::SyntaxViolation])] = &[
+        (
+            "non-special:opaque  ?hi",
+            "non-special:opaque %20?hi",
+            &[NonUrlCodePoint, NonUrlCodePoint],
+        ),
+        (
+            "non-special:opaque  #hi",
+            "non-special:opaque %20#hi",
+            &[NonUrlCodePoint, NonUrlCodePoint],
+        ),
+        (
+            "non-special:opaque \t\t  \t#hi",
+            "non-special:opaque  %20#hi",
+            &[
+                TabOrNewlineIgnored,
+                NonUrlCodePoint,
+                NonUrlCodePoint,
+                NonUrlCodePoint,
+            ],
+        ),
+        (
+            "non-special:opaque \t\t  #hi",
+            "non-special:opaque  %20#hi",
+            &[
+                TabOrNewlineIgnored,
+                NonUrlCodePoint,
+                NonUrlCodePoint,
+                NonUrlCodePoint,
+            ],
+        ),
+        (
+            "non-special:opaque\t\t  \r #hi",
+            "non-special:opaque  %20#hi",
+            &[
+                TabOrNewlineIgnored,
+                NonUrlCodePoint,
+                NonUrlCodePoint,
+                NonUrlCodePoint,
+            ],
+        ),
+        (
+            "custom:a b  c",
+            "custom:a b  c",
+            &[NonUrlCodePoint, NonUrlCodePoint, NonUrlCodePoint],
+        ),
+        ("custom:a  ", "custom:a", &[C0SpaceIgnored]),
+        ("custom:a ?", "custom:a%20?", &[NonUrlCodePoint]),
+        ("custom:a #", "custom:a%20#", &[NonUrlCodePoint]),
+        ("custom:a %20?", "custom:a %20?", &[NonUrlCodePoint]),
+        (
+            "custom:a \n?",
+            "custom:a%20?",
+            &[TabOrNewlineIgnored, NonUrlCodePoint],
+        ),
+        (
+            "custom:a  ?",
+            "custom:a %20?",
+            &[NonUrlCodePoint, NonUrlCodePoint],
+        ),
+        (
+            "custom:a \t ?",
+            "custom:a %20?",
+            &[TabOrNewlineIgnored, NonUrlCodePoint, NonUrlCodePoint],
+        ),
+    ];
+    for &(input, expected, diagnostics) in cases {
+        for _ in 0..3 {
+            let events = RefCell::new(Vec::new());
+            let callback = |event| events.borrow_mut().push(event);
+            let url = Url::options()
+                .syntax_violation_callback(Some(&callback))
+                .parse(input)
+                .unwrap();
+            assert_eq!(url.as_str(), expected, "{input:?}");
+            assert_eq!(*events.borrow(), diagnostics, "{input:?}");
+            assert_eq!(Url::parse(input).unwrap(), url, "callback isolation");
+            url.check_invariants().unwrap();
+            let reparsed = Url::parse(url.as_str()).unwrap();
+            reparsed.check_invariants().unwrap();
+            assert_eq!(url, reparsed, "serialization fixed point");
+            assert_eq!(url.path(), reparsed.path());
+            assert_eq!(url.query(), reparsed.query());
+            assert_eq!(url.fragment(), reparsed.fragment());
+        }
+    }
+}
+
+#[test]
+fn test_opaque_path_space_setters() {
+    let mut url = Url::parse("custom:old?q#f").unwrap();
+    url.set_path("new  body");
+    assert_eq!(url.as_str(), "custom:new  body?q#f");
+    url.check_invariants().unwrap();
+    assert_eq!(Url::parse(url.as_str()).unwrap(), url);
+
+    let mut url = Url::parse("custom:a ?q#f").unwrap();
+    url.set_query(None);
+    url.set_fragment(None);
+    assert_eq!(url.as_str(), "custom:a%20");
+    url.check_invariants().unwrap();
+    assert_eq!(Url::parse(url.as_str()).unwrap(), url);
+}
+
+#[test]
 fn test_strip_trailing_spaces_from_opaque_path() {
+    // The final space before a query/fragment is encoded in opaque-path state.
+    // Removing that component cannot strip the resulting percent-encoded data.
     let mut url: Url = "data:space   ?query".parse().unwrap();
     url.set_query(None);
-    assert_eq!(url.as_str(), "data:space");
+    assert_eq!(url.as_str(), "data:space  %20");
 
     let mut url: Url = "data:space   #hash".parse().unwrap();
     url.set_fragment(None);
+    assert_eq!(url.as_str(), "data:space  %20");
+
+    // Literal trailing spaces introduced through the Rust path setter still
+    // follow the existing stripping rule once query and fragment are absent.
+    let mut url: Url = "data:space?query".parse().unwrap();
+    url.set_path("space   ");
+    url.set_query(None);
     assert_eq!(url.as_str(), "data:space");
 }
 

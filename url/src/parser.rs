@@ -1420,6 +1420,17 @@ impl Parser<'_> {
                 Some(('?', _)) | Some(('#', _)) if self.context == Context::UrlParser => {
                     return input_before_c
                 }
+                Some((' ', _)) if self.context == Context::UrlParser => {
+                    self.log_violation(SyntaxViolation::NonUrlCodePoint);
+                    // Opaque-path state encodes only the space immediately
+                    // preceding a query or fragment. Input lookahead skips
+                    // tabs/newlines just as the parser's preprocessing does.
+                    if matches!(input.split_first().0, Some('?') | Some('#')) {
+                        self.serialization.push_str("%20");
+                    } else {
+                        self.serialization.push(' ');
+                    }
+                }
                 Some((c, utf8_c)) => {
                     self.check_url_code_point(c, &input);
                     self.serialization
