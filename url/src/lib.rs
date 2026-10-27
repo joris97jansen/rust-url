@@ -279,6 +279,11 @@ impl<'a> ParseOptions<'a> {
     /// `Fn`, the caller might need to utilize _interior mutability_, such as with
     /// a `RefCell`, to collect the violations.
     ///
+    /// [`SyntaxViolation::DomainToAscii`] reports a strict UTS #46 validation
+    /// failure even when non-strict URL parsing accepts the host. Attaching a
+    /// callback does not change parsing results. The callback can also run
+    /// before a fatal parsing error; a diagnostic does not imply success.
+    ///
     /// ## Example
     /// ```
     /// use std::cell::RefCell;
@@ -2044,7 +2049,7 @@ impl Url {
                 }
             }
             if SchemeType::from(self.scheme()).is_special() {
-                self.set_host_internal(Host::parse_cow(host_substr.into())?, None);
+                self.set_host_internal(Host::parse_cow(host_substr.into(), None)?, None);
             } else {
                 self.set_host_internal(Host::parse_opaque_cow(host_substr.into())?, None);
             }
@@ -3018,7 +3023,8 @@ fn path_to_file_url_segments_windows(
                 serialization.push(':');
             }
             Prefix::UNC(server, share) | Prefix::VerbatimUNC(server, share) => {
-                let host = Host::parse_cow(server.to_str().ok_or(())?.into()).map_err(|_| ())?;
+                let host =
+                    Host::parse_cow(server.to_str().ok_or(())?.into(), None).map_err(|_| ())?;
                 write!(serialization, "{host}").unwrap();
                 host_end = to_u32(serialization.len()).unwrap();
                 host_internal = host.into();

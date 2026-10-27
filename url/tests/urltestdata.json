@@ -1,4 +1,5 @@
 [
+  "# Eight ASCII/Punycode domain expectations updated from WPT c48d58747e1f211527fb695fd60548a997fae617.",
   "# Pulled from https://github.com/web-platform-tests/wpt/blob/876fe001f2279b96e7c6b9e8970dc92c484835ff/url/resources/urltestdata.json",
   {
     "input": "http://example\t.\norg",
@@ -3956,33 +3957,93 @@
   {
     "input": "http://a.b.c.xn--pokxncvks",
     "base": null,
-    "failure": true
+    "href": "http://a.b.c.xn--pokxncvks/",
+    "origin": "http://a.b.c.xn--pokxncvks",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "a.b.c.xn--pokxncvks",
+    "hostname": "a.b.c.xn--pokxncvks",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   {
     "input": "http://10.0.0.xn--pokxncvks",
     "base": null,
-    "failure": true
+    "href": "http://10.0.0.xn--pokxncvks/",
+    "origin": "http://10.0.0.xn--pokxncvks",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "10.0.0.xn--pokxncvks",
+    "hostname": "10.0.0.xn--pokxncvks",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   "IDNA labels should be matched case-insensitively",
   {
     "input": "http://a.b.c.XN--pokxncvks",
     "base": null,
-    "failure": true
+    "href": "http://a.b.c.xn--pokxncvks/",
+    "origin": "http://a.b.c.xn--pokxncvks",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "a.b.c.xn--pokxncvks",
+    "hostname": "a.b.c.xn--pokxncvks",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   {
     "input": "http://a.b.c.Xn--pokxncvks",
     "base": null,
-    "failure": true
+    "href": "http://a.b.c.xn--pokxncvks/",
+    "origin": "http://a.b.c.xn--pokxncvks",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "a.b.c.xn--pokxncvks",
+    "hostname": "a.b.c.xn--pokxncvks",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   {
     "input": "http://10.0.0.XN--pokxncvks",
     "base": null,
-    "failure": true
+    "href": "http://10.0.0.xn--pokxncvks/",
+    "origin": "http://10.0.0.xn--pokxncvks",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "10.0.0.xn--pokxncvks",
+    "hostname": "10.0.0.xn--pokxncvks",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   {
     "input": "http://10.0.0.xN--pokxncvks",
     "base": null,
-    "failure": true
+    "href": "http://10.0.0.xn--pokxncvks/",
+    "origin": "http://10.0.0.xn--pokxncvks",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "10.0.0.xn--pokxncvks",
+    "hostname": "10.0.0.xn--pokxncvks",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   "Test name prepping, fullwidth input should be converted to ASCII and NOT IDN-ized. This is 'Go' in fullwidth UTF-8/UTF-16.",
   {
@@ -8594,7 +8655,16 @@
   {
     "input": "file://xn--/p",
     "base": null,
-    "failure": true
+    "href": "file://xn--/p",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "xn--",
+    "hostname": "xn--",
+    "port": "",
+    "pathname": "/p",
+    "search": "",
+    "hash": ""
   },
   "https://bugzilla.mozilla.org/show_bug.cgi?id=1647058",
   {
@@ -9340,7 +9410,17 @@
   {
     "input": "https://xn--/",
     "base": null,
-    "failure": true
+    "href": "https://xn--/",
+    "origin": "https://xn--",
+    "protocol": "https:",
+    "username": "",
+    "password": "",
+    "host": "xn--",
+    "hostname": "xn--",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
   },
   "Non-special schemes that some implementations might incorrectly treat as special",
   {

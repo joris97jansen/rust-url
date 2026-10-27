@@ -18,7 +18,7 @@ use percent_encoding::{percent_decode, utf8_percent_encode, CONTROLS};
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
 
-use crate::parser::{ParseError, ParseResult};
+use crate::parser::{ParseError, ParseResult, SyntaxViolation};
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -79,7 +79,7 @@ impl Host<String> {
     ///
     /// <https://url.spec.whatwg.org/#host-parsing>
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        Host::<Cow<str>>::parse_cow(input.into()).map(|i| i.into_owned())
+        Host::<Cow<str>>::parse_cow(input.into(), None).map(|i| i.into_owned())
     }
 
     /// <https://url.spec.whatwg.org/#concept-opaque-host-parser>
@@ -89,7 +89,10 @@ impl Host<String> {
 }
 
 impl<'a> Host<Cow<'a, str>> {
-    pub(crate) fn parse_cow(input: Cow<'a, str>) -> Result<Self, ParseError> {
+    pub(crate) fn parse_cow(
+        input: Cow<'a, str>,
+        violation_fn: Option<&dyn Fn(SyntaxViolation)>,
+    ) -> Result<Self, ParseError> {
         if input.starts_with('[') {
             if !input.ends_with(']') {
                 return Err(ParseError::InvalidIpv6Address);
@@ -106,7 +109,67 @@ impl<'a> Host<Cow<'a, str>> {
             },
         };
 
-        let domain = idna::domain_to_ascii_from_cow(domain, idna::AsciiDenyList::URL)?;
+        // WHATWG domain parsing reports strict ToASCII failure before deciding
+        // whether non-strict URL parsing can still accept the domain.
+        if let Some(violation_fn) = violation_fn {
+            if idna::uts46::Uts46::new()
+                .to_ascii(
+                    &domain,
+                    idna::AsciiDenyList::STD3,
+                    idna::uts46::Hyphens::Check,
+                    idna::uts46::DnsLength::Verify,
+                )
+                .is_err()
+            {
+                violation_fn(SyntaxViolation::DomainToAscii);
+            }
+        }
+
+        // The URL Standard's non-strict domain parser preserves an entirely
+        // ASCII domain (apart from case), including invalid Punycode labels.
+        // The decision applies to the whole percent-decoded domain, not to
+        // individual labels. Non-ASCII domains still undergo UTS #46.
+        let domain = if domain.is_ascii() {
+            if domain.iter().any(|&b| {
+                b <= b' '
+                    || b == 0x7f
+                    || matches!(
+                        b,
+                        b'#' | b'%'
+                            | b'/'
+                            | b':'
+                            | b'<'
+                            | b'>'
+                            | b'?'
+                            | b'@'
+                            | b'['
+                            | b'\\'
+                            | b']'
+                            | b'^'
+                            | b'|'
+                    )
+            }) {
+                return Err(ParseError::IdnaError);
+            }
+            match domain {
+                Cow::Borrowed(bytes) => {
+                    // ASCII is valid UTF-8. Keep the common lowercase case borrowed.
+                    let ascii = core::str::from_utf8(bytes).unwrap();
+                    if bytes.iter().any(u8::is_ascii_uppercase) {
+                        Cow::Owned(ascii.to_ascii_lowercase())
+                    } else {
+                        Cow::Borrowed(ascii)
+                    }
+                }
+                Cow::Owned(bytes) => {
+                    let mut ascii = String::from_utf8(bytes).unwrap();
+                    ascii.make_ascii_lowercase();
+                    Cow::Owned(ascii)
+                }
+            }
+        } else {
+            idna::domain_to_ascii_from_cow(domain, idna::AsciiDenyList::URL)?
+        };
 
         if domain.is_empty() {
             return Err(ParseError::EmptyHost);
@@ -180,6 +243,17 @@ impl<'a> Host<Cow<'a, str>> {
             Host::Ipv4(ip) => Host::Ipv4(ip),
             Host::Ipv6(ip) => Host::Ipv6(ip),
         }
+    }
+}
+
+/// URL Standard domain-to-Unicode: a failed conversion preserves the ASCII
+/// domain. Generic IDNA error-marker output must not escape through URL APIs.
+pub(crate) fn domain_to_unicode(domain: &str) -> String {
+    let (unicode, result) = idna::domain_to_unicode(domain);
+    if result.is_err() {
+        domain.into()
+    } else {
+        unicode
     }
 }
 

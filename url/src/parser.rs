@@ -136,6 +136,7 @@ syntax_violation_enum! {
     Backslash => "backslash",
     C0SpaceIgnored =>
         "leading or trailing control or space character are ignored in URLs",
+    DomainToAscii => "domain-to-ASCII validation error",
     EmbeddedCredentials =>
         "embedding authentication information (username or password) \
          in an URL is not recommended",
@@ -949,7 +950,7 @@ impl Parser<'_> {
         scheme_end: u32,
         scheme_type: SchemeType,
     ) -> ParseResult<(u32, HostInternal, Option<u16>, Input<'i>)> {
-        let (host, remaining) = Parser::parse_host(input, scheme_type)?;
+        let (host, remaining) = Parser::parse_host(input, scheme_type, self.violation_fn)?;
         write!(&mut self.serialization, "{host}").unwrap();
         let host_end = to_u32(self.serialization.len())?;
         if let Host::Domain(h) = &host {
@@ -980,12 +981,13 @@ impl Parser<'_> {
         Ok((host_end, host.into(), port, remaining))
     }
 
-    pub fn parse_host(
-        mut input: Input<'_>,
+    pub fn parse_host<'i>(
+        mut input: Input<'i>,
         scheme_type: SchemeType,
-    ) -> ParseResult<(Host<Cow<'_, str>>, Input<'_>)> {
+        violation_fn: Option<&dyn Fn(SyntaxViolation)>,
+    ) -> ParseResult<(Host<Cow<'i, str>>, Input<'i>)> {
         if scheme_type.is_file() {
-            return Parser::get_file_host(input);
+            return Parser::get_file_host(input, violation_fn);
         }
         // Undo the Input abstraction here to avoid allocating in the common case
         // where the host part of the input does not contain any tab or newline
@@ -1031,15 +1033,18 @@ impl Parser<'_> {
             let host = Host::parse_opaque_cow(host_str)?;
             return Ok((host, input));
         }
-        let host = Host::parse_cow(host_str)?;
+        let host = Host::parse_cow(host_str, violation_fn)?;
         Ok((host, input))
     }
 
-    fn get_file_host(input: Input<'_>) -> ParseResult<(Host<Cow<'_, str>>, Input<'_>)> {
+    fn get_file_host<'i>(
+        input: Input<'i>,
+        violation_fn: Option<&dyn Fn(SyntaxViolation)>,
+    ) -> ParseResult<(Host<Cow<'i, str>>, Input<'i>)> {
         let (_, host_str, remaining) = Parser::file_host(input)?;
-        let host = match Host::parse(&host_str)? {
+        let host = match Host::parse_cow(host_str, violation_fn)? {
             Host::Domain(ref d) if d == "localhost" => Host::Domain(Cow::Borrowed("")),
-            Host::Domain(s) => Host::Domain(Cow::Owned(s)),
+            Host::Domain(s) => Host::Domain(s),
             Host::Ipv4(ip) => Host::Ipv4(ip),
             Host::Ipv6(ip) => Host::Ipv6(ip),
         };
@@ -1054,7 +1059,7 @@ impl Parser<'_> {
         let host = if host_str.is_empty() {
             return Ok((continue_with_path_start, HostInternal::None, remaining));
         } else {
-            match Host::parse_cow(host_str)? {
+            match Host::parse_cow(host_str, self.violation_fn)? {
                 Host::Domain(ref d) if d == "localhost" => HostInternal::None,
                 host => {
                     write!(&mut self.serialization, "{host}").unwrap();

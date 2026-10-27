@@ -70,10 +70,7 @@ pub fn domain_to_ascii(domain: &str) -> String {
 /// <https://url.spec.whatwg.org/#dom-url-domaintounicode>
 pub fn domain_to_unicode(domain: &str) -> String {
     match Host::parse(domain) {
-        Ok(Host::Domain(ref domain)) => {
-            let (unicode, _errors) = idna::domain_to_unicode(domain);
-            unicode
-        }
+        Ok(Host::Domain(ref domain)) => crate::host::domain_to_unicode(domain),
         _ => String::new(),
     }
 }
@@ -165,7 +162,7 @@ pub fn set_host(url: &mut Url, new_host: &str) -> Result<(), ()> {
             return Ok(());
         }
 
-        if let Ok((h, remaining)) = Parser::parse_host(input, scheme_type) {
+        if let Ok((h, remaining)) = Parser::parse_host(input, scheme_type, None) {
             host = h;
             opt_port = if let Some(remaining) = remaining.split_prefix(':') {
                 if remaining.is_empty() {
@@ -212,7 +209,7 @@ pub fn set_hostname(url: &mut Url, new_hostname: &str) -> Result<(), ()> {
         return Ok(());
     }
 
-    if let Ok((host, remaining)) = Parser::parse_host(input, scheme_type) {
+    if let Ok((host, remaining)) = Parser::parse_host(input, scheme_type, None) {
         if remaining.starts_with(':') {
             return Err(());
         };

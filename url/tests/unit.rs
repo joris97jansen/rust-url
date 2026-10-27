@@ -553,7 +553,12 @@ fn test_file_resolution_host_inheritance_controls() {
     }
     // Fatal authority errors remain failures rather than inheriting the base.
     for input in ["//user:pass@other/path", "//other:80/path"] {
-        assert_file_resolution(&base, input, Err(url::ParseError::IdnaError), &[]);
+        assert_file_resolution(
+            &base,
+            input,
+            Err(url::ParseError::IdnaError),
+            &[url::SyntaxViolation::DomainToAscii],
+        );
     }
 }
 
@@ -1531,6 +1536,7 @@ fn test_syntax_violation_callback_types() {
         (" http://mozilla.org", C0SpaceIgnored, "leading or trailing control or space character are ignored in URLs"),
         ("http://user:pass@mozilla.org", EmbeddedCredentials, "embedding authentication information (username or password) in an URL is not recommended"),
         ("http:///mozilla.org", ExpectedDoubleSlash, "expected //"),
+        ("https://xn--/", DomainToAscii, "domain-to-ASCII validation error"),
         ("file:/foo.txt", ExpectedFileDoubleSlash, "expected // after file:"),
         ("file://mozilla.org/c:/file.txt", FileWithHostAndWindowsDrive, "file: with host and Windows drive letter"),
         ("http://mozilla.org/^", NonUrlCodePoint, "non-URL code point"),

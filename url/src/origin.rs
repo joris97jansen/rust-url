@@ -95,8 +95,7 @@ impl Origin {
             Self::Tuple(ref scheme, ref host, port) => {
                 let host = match *host {
                     Host::Domain(ref domain) => {
-                        let (domain, _errors) = idna::domain_to_unicode(domain);
-                        Host::Domain(domain)
+                        Host::Domain(crate::host::domain_to_unicode(domain))
                     }
                     _ => host.clone(),
                 };
