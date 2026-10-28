@@ -94,6 +94,8 @@ def main():
         raise ValueError("Workflow repository contradicts the approved repository")
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=SOURCE):
         raise ValueError("Source checkout must be clean")
+    if platform.python_version() != INPUTS["tools"]["python"] or sys.implementation.name != "cpython":
+        raise ValueError("Python interpreter does not match the reviewed CPython pin")
     for name, expected in INPUTS["source_checksums"].items():
         if sha(SOURCE / name) != expected:
             raise ValueError("Versioned source fixture changed: " + name)
@@ -117,6 +119,7 @@ def main():
                 "rustc": rustc, "cargo": subprocess.check_output(["cargo", "-V"], text=True),
                 "git": subprocess.check_output(["git", "--version"], text=True),
                 "platform": platform.platform(), "architecture": platform.machine(), "python": sys.version,
+                "python_executable": sys.executable, "python_version": platform.python_version(),
                 "runner_image": {k: os.environ.get(k) for k in ["ImageOS", "ImageVersion", "RUNNER_ARCH"]},
                 "corpora": INPUTS["wpt"], "findings": FINDINGS}
     (OUT / (args.lane + "-identity.json")).write_text(json.dumps(metadata, indent=2) + "\n")
@@ -268,7 +271,10 @@ def main():
         for i, value in enumerate(INPUTS["fuzz_regressions"]):
             (corpus / ("regression-%d" % i)).write_bytes(bytes.fromhex(value))
         tools = OUT / "tools"
-        code = run("install-fuzz", ["cargo", "install", "cargo-fuzz", "--version", INPUTS["tools"]["cargo-fuzz"], "--locked", "--root", str(tools)])
+        # Install the CLI with stable Rust: its locked rustix 0.36.5 Linux
+        # backend uses private attributes incompatible with the selected nightly.
+        code = run("install-fuzz", ["rustup", "run", INPUTS["rust"]["adoption"], "cargo", "install", "cargo-fuzz",
+                                   "--version", INPUTS["tools"]["cargo-fuzz"], "--locked", "--root", str(tools)])
         if code:
             return code
         extra = {"PATH": str(tools / "bin") + os.pathsep + ENV["PATH"], "CARGO_NET_OFFLINE": "true"}

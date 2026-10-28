@@ -37,15 +37,12 @@ reviewed literal checkout pin, worker constant and input manifest together, then
 push this control branch after approval. Installing workflows on `borrowser` would
 need separate approval.
 
-Repository Actions permissions report enabled/all-actions/read-only default token,
-but inherited workflows are not registered. The old workflows only accept pushes
-to `main`, so the published `borrowser` pushes were ineligible. A fork-local PR is
-also present in the event history, so filters do not explain every missing run.
-GitHub documents that fork workflows need activation in the fork's Actions tab.
-The API exposes neither a disabled-fork workflow record nor proof that this UI
-activation happened: filename lookups return 404. Verify the activation prompt
-before execution; if activation is needed, it requires explicit approval. No
-settings, branch protection, workflow run or remote ref has been changed here.
+Publication of CI commit `32558198517efa00755f413c768178eef0777970` registered
+this workflow and automatically started [run 40682553127](https://github.com/joris97jansen/rust-url/actions/runs/40682553127).
+No fork activation or settings change was necessary. That run exposed three CI
+infrastructure defects: unavailable Windows/macOS Python assets, cargo-fuzz CLI
+installation with an incompatible nightly, and cargo-deny option placement.
+The original logs and qualification findings remain preserved independently.
 
 ## Frozen graphs and independent data
 
@@ -96,11 +93,29 @@ callback order, fatal errors and serialization invariants; the WPT driver does n
 claim a complete independent oracle for every WHATWG diagnostic category.
 
 `inputs.json` records checksums and provenance. Actions use full commit SHAs,
-Rust uses release/date pins, Python is 3.12.12, cargo-fuzz is 0.13.1 and wasm-pack
+Rust uses release/date pins, CPython is 3.14.2, cargo-fuzz is 0.13.1 and wasm-pack
 is 0.13.1. Runner labels are explicit; runner image/architecture and actual tool
 identities are recorded. Hosted images, browser builds and advisory databases are
 not hermetic snapshots. Browser versions are logged; current security audit results
 must be retained with their run date. Locks and input manifests are uploaded with logs.
+
+CPython 3.12.12 has only Linux builds in the official Actions Python manifest.
+The explicit 3.14.2 pin has Ubuntu 24.04 x64, Windows x64 and macOS ARM64 assets;
+it also matches the interpreter previously used to validate this worker locally.
+The worker rejects any different version or implementation before preparation and
+records the interpreter version and executable. No ambient interpreter fallback
+can count as qualification under a different version.
+
+The cargo-fuzz 0.13.1 CLI is installed with `rustup run 1.92.0 cargo install --locked`.
+Its locked rustix 0.36.5 Linux backend enables private rustc attributes on nightly
+that the selected nightly no longer accepts. Stable installation avoids that tool
+build incompatibility without changing the CLI lock or the fuzz target graph.
+The selected nightly remains active for metadata and both fuzz targets; the stable
+installation command does not change the default toolchain.
+
+The pinned cargo-deny action installs cargo-deny 0.20.2. Its `--config` option is a
+global graph-context argument, so it is passed through `arguments` before `check`,
+with the existing `source/deny.toml`, lockfile and all-feature audit unchanged.
 
 ## Matrix and acceptance
 
@@ -176,7 +191,25 @@ qualify consumer fuzzing. In this corrected proposal, all eight source-identity
 regressions pass, both existing fuzz targets replay the consumer graph successfully,
 and the 34 consumer URL dependency identities match. Consumer native features,
 pinned WPT, matched Unicode 16, formatting and Clippy with warnings denied pass.
-Actionlint checks all four workflows and Python 3.12 grammar checks pass. The local
-interpreter is Python 3.14.2; the hosted Python 3.12.12 lane remains pending. Hosted Linux/Windows,
-other support toolchains, sanitizer/WASM/no_std and audit jobs remain unexecuted
-by this proposal; no remote workflow was triggered.
+Actionlint checks all four workflows and Python syntax checks pass. The local
+interpreter is Python 3.14.2. Run 40682553127 subsequently passed Linux consumer
+and support cells, all four Linux sanitizers, lint, Chrome/Firefox WASM and no_std;
+it reproduced the ten original IDNA failures. Windows/macOS qualification, Linux
+fuzz replay and both audits were blocked by the three infrastructure defects above.
+The stable/modern Windows WPT follow-up passed under ambient tools after setup
+failed; that partial result does not qualify its native feature lane or consumer use.
+
+The CI-only corrections require a new review and hosted run. Existing required
+platforms, toolchains, feature lanes, both fuzz targets, all 896 WPT inputs, eight
+regression seeds, frozen graphs, audit rules and explicit failure findings remain
+unchanged. No production source or test expectation changes are included.
+
+The infrastructure corrections were validated locally with CPython 3.14.2:
+all eight source-identity tests pass and a different interpreter is rejected before
+preparation. Fresh locked cargo-fuzz installations pass on native macOS ARM64 and
+in a Linux ARM64 container with Rust 1.92.0. Both existing targets replay successfully
+on macOS with the pinned nightly and unchanged consumer graph. Cargo-deny 0.20.2
+passes advisories, bans, licenses and sources on both frozen graphs with unchanged
+rules. The 896 URL outcomes and nine setter findings remain unchanged; formatting,
+Clippy with warnings denied and actionlint pass. These local checks do not replace
+the required hosted native platforms and sanitizer/fuzz/audit gates.
