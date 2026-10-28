@@ -639,6 +639,12 @@ impl Parser<'_> {
                         };
                         self.serialization.push_str(before_query);
                         self.shorten_path(SchemeType::File, base_url.path_start as usize);
+                        // A sole drive survives shortening without a trailing
+                        // slash. Start the next segment before reading its
+                        // buffer, which may be flushed by ignored characters.
+                        if !self.serialization.ends_with('/') {
+                            self.serialization.push('/');
+                        }
                         let remaining = self.parse_path(
                             SchemeType::File,
                             &mut true,
@@ -1280,7 +1286,10 @@ impl Parser<'_> {
                     }
                     _ => {
                         self.check_url_code_point(c, &input);
-                        if scheme_type.is_file()
+                        // Retain state-override behavior for setters. URL
+                        // parsing establishes separators before this buffer.
+                        if self.context != Context::UrlParser
+                            && scheme_type.is_file()
                             && self.serialization.len() > path_start
                             && is_normalized_windows_drive_letter(
                                 &self.serialization[path_start + 1..],

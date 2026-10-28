@@ -124,6 +124,146 @@ fn test_relative_path_shortening_drive_segments() {
     }
 }
 
+#[test]
+fn test_file_partial_drive_segments() {
+    use url::SyntaxViolation::{
+        Backslash, ExpectedFileDoubleSlash, NonUrlCodePoint, TabOrNewlineIgnored,
+    };
+
+    // WHATWG preprocessing removes tabs/newlines without completing a path
+    // segment. A flushed prefix such as x: must not become a drive root.
+    // First case: fuzz artifact fe6c3ec5c573b7ab17eed33d7c58a78b28d260d8.
+    let cases: &[(&str, &str, &[url::SyntaxViolation])] = &[
+        (
+            "file:/x:\r./\r\0./",
+            "file:///x:./%00./",
+            &[
+                TabOrNewlineIgnored,
+                ExpectedFileDoubleSlash,
+                NonUrlCodePoint,
+            ],
+        ),
+        ("file:///x:\r.", "file:///x:.", &[TabOrNewlineIgnored]),
+        (
+            "file:/x:\r.",
+            "file:///x:.",
+            &[TabOrNewlineIgnored, ExpectedFileDoubleSlash],
+        ),
+        (
+            "file://host/x:\r.",
+            "file://host/x:.",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "file:/C:\tfoo",
+            "file:///C:foo",
+            &[TabOrNewlineIgnored, ExpectedFileDoubleSlash],
+        ),
+        ("file:///C:\r/..", "file:///C:/", &[TabOrNewlineIgnored]),
+        ("file:///x:\n.", "file:///x:.", &[TabOrNewlineIgnored]),
+        ("file:///x:\t.", "file:///x:.", &[TabOrNewlineIgnored]),
+        ("file:///x:\r\n\t.", "file:///x:.", &[TabOrNewlineIgnored]),
+        (
+            "file:///C\r\n\t:foo",
+            "file:///C:foo",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "file:///C\r\n\t|/leaf",
+            "file:///C:/leaf",
+            &[TabOrNewlineIgnored, NonUrlCodePoint],
+        ),
+        (
+            "file:///C:\r\n\t/../../leaf",
+            "file:///C:/leaf",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "file:///C:\r\n\t\\leaf",
+            "file:///C:/leaf",
+            &[TabOrNewlineIgnored, Backslash],
+        ),
+        (
+            "file:///C:\r\n\t//leaf",
+            "file:///C://leaf",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "file:///x:\r\n\t./../leaf",
+            "file:///leaf",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "file:///C:\r\n\t/%2e%2e/leaf",
+            "file:///C:/leaf",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "file:///x:\r\n\t.?q#f",
+            "file:///x:.?q#f",
+            &[TabOrNewlineIgnored],
+        ),
+        (
+            "http://host/x:\r./\r\0./",
+            "http://host/x:./%00./",
+            &[TabOrNewlineIgnored, NonUrlCodePoint],
+        ),
+        ("custom:/x:\r.", "custom:/x:.", &[TabOrNewlineIgnored]),
+    ];
+    for &(input, expected, diagnostics) in cases {
+        let preprocessed: String = input
+            .chars()
+            .filter(|c| !matches!(c, '\r' | '\n' | '\t'))
+            .collect();
+        for _ in 0..3 {
+            let events = RefCell::new(Vec::new());
+            let callback = |event| events.borrow_mut().push(event);
+            let url = Url::options()
+                .syntax_violation_callback(Some(&callback))
+                .parse(input)
+                .unwrap();
+            assert_eq!(url.as_str(), expected, "{input:?}");
+            assert_eq!(*events.borrow(), diagnostics, "{input:?}");
+            assert_eq!(Url::parse(input).unwrap(), url, "callback isolation");
+            assert_eq!(Url::parse(&preprocessed).unwrap(), url, "preprocessing");
+            url.check_invariants().unwrap();
+            let reparsed = Url::parse(url.as_str()).unwrap();
+            assert_eq!(url, reparsed, "serialization fixed point");
+            assert_eq!(url.host(), reparsed.host());
+            assert_eq!(url.path(), reparsed.path());
+        }
+    }
+}
+
+#[test]
+fn test_file_partial_drive_resolution() {
+    use url::SyntaxViolation::{Backslash, C0SpaceIgnored, TabOrNewlineIgnored};
+
+    // Shortening a sole drive retains it. The next segment needs its own
+    // separator regardless of whether the base originally ended with one.
+    for (base, root) in [
+        ("file:///C:", "file:///C:/"),
+        ("file:///C:/", "file:///C:/"),
+        ("file:///C:/a", "file:///C:/"),
+        ("file://host/C:", "file://host/C:/"),
+        ("file://host/C:/", "file://host/C:/"),
+        ("file://host/C:/a", "file://host/C:/"),
+    ] {
+        let base = Url::parse(base).unwrap();
+        for (input, suffix, diagnostics) in [
+            ("leaf", "leaf", &[][..]),
+            ("./leaf", "leaf", &[][..]),
+            ("../leaf", "leaf", &[][..]),
+            ("..", "", &[][..]),
+            ("le\r\n\taf", "leaf", &[TabOrNewlineIgnored][..]),
+            ("leaf\r\n\t", "leaf", &[C0SpaceIgnored][..]),
+            ("leaf\\next", "leaf/next", &[Backslash][..]),
+        ] {
+            assert_file_resolution(&base, input, Ok(&format!("{root}{suffix}")), diagnostics);
+        }
+    }
+}
+
 fn parse_relative_with_diagnostics(
     base: &Url,
     input: &str,
