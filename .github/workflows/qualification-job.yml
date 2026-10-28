@@ -1,0 +1,89 @@
+name: URL qualification job
+on:
+  workflow_call:
+    inputs:
+      os: {type: string, required: true}
+      rust: {type: string, required: true}
+      graph: {type: string, required: true}
+      tier: {type: string, required: true}
+      lane: {type: string, required: true}
+      sanitizer: {type: string, default: ''}
+      components: {type: string, default: ''}
+      targets: {type: string, default: ''}
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: ${{ inputs.tier }} / ${{ inputs.os }} / ${{ inputs.rust }} / ${{ inputs.graph }} / ${{ inputs.lane }} / ${{ inputs.sanitizer }}
+    if: ${{ github.repository == 'joris97jansen/rust-url' && github.ref == 'refs/heads/qualification/borrowser-ci' }}
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUTF8: '1'
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      SANITIZER: ${{ inputs.sanitizer }}
+      QUALIFICATION_TOOLCHAIN: ${{ inputs.rust }}
+      QUALIFICATION_GRAPH: ${{ inputs.graph }}
+      QUALIFICATION_LANE: ${{ inputs.lane }}
+      QUALIFICATION_OUTPUT: ${{ github.workspace }}/qualification-results
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: joris97jansen/rust-url
+          ref: ${{ github.sha }}
+          path: ci-config
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: joris97jansen/rust-url
+          ref: 7dc4ecbf4d29817e723e04ae94b14f1326764f61
+          fetch-depth: 2
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.12'
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        if: ${{ inputs.rust == '1.63.0' }}
+        with:
+          toolchain: '1.92.0'
+      - name: Vendor frozen MSRV graph with modern Cargo
+        if: ${{ inputs.rust == '1.63.0' }}
+        run: python ci-config/ci/qualification/run.py source "$QUALIFICATION_GRAPH" vendor-msrv
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ inputs.rust }}
+          components: ${{ inputs.components }}
+          targets: ${{ inputs.targets }}
+      - name: Test source identity rejection before qualification
+        run: python ci-config/ci/qualification/test_identity.py source
+      - name: Run existing qualification tools
+        run: python ci-config/ci/qualification/run.py source "$QUALIFICATION_GRAPH" "$QUALIFICATION_LANE"
+      - name: Independent pinned WPT and unchanged setter inventory
+        if: ${{ !cancelled() && inputs.lane == 'native' }}
+        run: python ci-config/ci/qualification/run.py source "$QUALIFICATION_GRAPH" pinned
+      - name: Independent version-matched IDNA corpus
+        if: ${{ !cancelled() && inputs.lane == 'native' }}
+        run: python ci-config/ci/qualification/run.py source "$QUALIFICATION_GRAPH" idna
+      - name: Audit frozen dependency graph
+        if: ${{ inputs.lane == 'prepare' }}
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25
+        with:
+          manifest-path: source/Cargo.toml
+          rust-version: ${{ inputs.rust }}
+          arguments: --locked --all-features
+          command-arguments: --config source/deny.toml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: ${{ inputs.tier }}-${{ inputs.os }}-${{ inputs.rust }}-${{ inputs.graph }}-${{ inputs.lane }}-${{ inputs.sanitizer }}
+          path: |
+            qualification-results/*.json
+            qualification-results/*.log
+            qualification-results/*.lock
+          if-no-files-found: error

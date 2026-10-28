@@ -1,0 +1,127 @@
+name: Maintained URL qualification
+on:
+  push:
+    branches: [qualification/borrowser-ci]
+permissions:
+  contents: read
+concurrency:
+  group: url-qualification-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+  QUALIFICATION_OUTPUT: ${{ github.workspace }}/qualification-results
+jobs:
+  adoption:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ${{ matrix.os }}
+      rust: '1.92.0'
+      graph: borrowser
+      tier: adoption
+      lane: native
+  support:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {os: ubuntu-24.04, rust: '1.63.0', graph: msrv}
+          - {os: windows-2022, rust: '1.63.0', graph: msrv}
+          - {os: macos-14, rust: '1.63.0', graph: msrv}
+          - {os: ubuntu-24.04, rust: '1.82.0', graph: borrowser}
+          - {os: ubuntu-24.04, rust: '1.99.1', graph: modern}
+          - {os: windows-2022, rust: '1.99.1', graph: modern}
+          - {os: macos-14, rust: '1.99.1', graph: modern}
+          - {os: ubuntu-24.04, rust: beta-2026-10-18, graph: modern}
+          - {os: ubuntu-24.04, rust: nightly-2026-10-28, graph: modern}
+          - {os: windows-2022, rust: nightly-2026-10-28, graph: modern}
+          - {os: macos-14, rust: nightly-2026-10-28, graph: modern}
+          - {os: ubuntu-24.04, rust: '1.92.0', graph: modern}
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ${{ matrix.os }}
+      rust: ${{ matrix.rust }}
+      graph: ${{ matrix.graph }}
+      tier: support
+      lane: native
+  idna-baseline:
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ubuntu-24.04
+      rust: '1.92.0'
+      graph: modern
+      lane: idna-baseline
+      tier: finding
+  lint:
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ubuntu-24.04
+      rust: '1.92.0'
+      graph: borrowser
+      lane: lint
+      tier: adoption
+      components: rustfmt, clippy
+  sanitizers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, sanitizer: address, tier: adoption}
+          - {os: macos-14, sanitizer: address, tier: adoption}
+          - {os: ubuntu-24.04, sanitizer: thread, tier: support}
+          - {os: macos-14, sanitizer: thread, tier: support}
+          - {os: ubuntu-24.04, sanitizer: leak, tier: support}
+          - {os: ubuntu-24.04, sanitizer: memory, tier: support}
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ${{ matrix.os }}
+      rust: nightly-2026-10-28
+      graph: borrowser
+      lane: sanitizer
+      tier: ${{ matrix.tier }}
+      components: rust-src
+      sanitizer: ${{ matrix.sanitizer }}
+  fuzz-regressions:
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ubuntu-24.04
+      rust: nightly-2026-10-28
+      graph: borrowser
+      lane: fuzz
+      tier: adoption
+  wasm:
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ubuntu-24.04
+      rust: '1.92.0'
+      graph: modern
+      lane: wasm
+      tier: support
+      targets: wasm32-unknown-unknown
+  no-std:
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ubuntu-24.04
+      rust: nightly-2026-10-28
+      graph: modern
+      lane: no-std
+      tier: support
+      targets: aarch64-unknown-none
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {graph: borrowser, tier: adoption}
+          - {graph: modern, tier: support}
+    uses: ./.github/workflows/qualification-job.yml
+    with:
+      os: ubuntu-24.04
+      rust: '1.92.0'
+      graph: ${{ matrix.graph }}
+      lane: prepare
+      tier: ${{ matrix.tier }}

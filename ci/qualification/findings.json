@@ -1,0 +1,60 @@
+{
+  "idna_unicode17_baseline": {
+    "failures": [
+      "UTS #46 (deprecated API) line 3384",
+      "UTS #46 (deprecated API) line 3385",
+      "UTS #46 (deprecated API) line 3386",
+      "UTS #46 (deprecated API) line 5860",
+      "UTS #46 (deprecated API) line 5861",
+      "UTS #46 (deprecated API) line 5862",
+      "UTS #46 line 3386",
+      "UTS #46 line 5860",
+      "UTS #46 line 5861",
+      "UTS #46 line 5862"
+    ],
+    "classification": "Unchanged Unicode 17 corpus versus ICU 2.4 / Unicode 18 data mismatch; raw lane must remain failed.",
+    "affected_codepoints": [
+      "U+3F8CD",
+      "U+3E8AC"
+    ]
+  },
+  "setter_exceptions": [
+    {
+      "case": "<non-spec:/.//p> set hostname to <h>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<non-spec:/.//p> set hostname to <>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<foo:///some/path> set pathname to <>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<file:///var/log/system.log> set href to <http://0300.168.0xF0>",
+      "classification": "missing href dispatch in existing driver; public API conforms"
+    },
+    {
+      "case": "<non-spec:/> set pathname to </.//p>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<non-spec:/> set pathname to </..//p>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<non-spec:/> set pathname to <//p>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<non-spec:/.//> set pathname to <p>",
+      "classification": "upstream implementation defect"
+    },
+    {
+      "case": "<https://domain.com:3000> set port to <\\n\\n\\t\\t>",
+      "classification": "upstream implementation defect"
+    }
+  ],
+  "acceptance": "No allow-fail, failure-to-success conversion or expectation edits. Review remaining findings before adoption."
+}

@@ -1,0 +1,135 @@
+{
+  "revision": "7dc4ecbf4d29817e723e04ae94b14f1326764f61",
+  "qualification_branch": "qualification/borrowser-ci",
+  "rust": {
+    "adoption": "1.92.0",
+    "msrv": "1.63.0",
+    "intermediate": "1.82.0",
+    "stable": "1.99.1",
+    "beta": "beta-2026-10-18",
+    "nightly": "nightly-2026-10-28"
+  },
+  "tools": {
+    "cargo-fuzz": "0.13.1",
+    "wasm-pack": "0.13.1"
+  },
+  "wpt": {
+    "revision": "c48d58747e1f211527fb695fd60548a997fae617",
+    "url_cases": 896,
+    "null_base": 560,
+    "explicit_base": 336,
+    "setter_cases": 278
+  },
+  "graphs": {
+    "borrowser": {
+      "lock": "locks/borrowser.lock",
+      "idna_corpus": "source:idna/tests/IdnaTestV2-Unicode16.txt",
+      "description": "Recovered frozen workspace graph; URL runtime dependency versions must match the consumer closure.",
+      "runtime_packages": [
+        "displaydoc 0.2.5",
+        "form_urlencoded 1.2.2",
+        "icu_collections 2.0.0",
+        "icu_locale_core 2.0.0",
+        "icu_normalizer 2.0.0",
+        "icu_normalizer_data 2.0.0",
+        "icu_properties 2.0.1",
+        "icu_properties_data 2.0.1",
+        "icu_provider 2.0.0",
+        "idna 1.1.0",
+        "idna_adapter 1.2.1",
+        "litemap 0.8.0",
+        "percent-encoding 2.3.2",
+        "potential_utf 0.1.3",
+        "proc-macro2 1.0.101",
+        "quote 1.0.40",
+        "serde 1.0.225",
+        "serde_core 1.0.225",
+        "serde_derive 1.0.225",
+        "smallvec 1.15.1",
+        "stable_deref_trait 1.2.0",
+        "syn 2.0.106",
+        "synstructure 0.13.2",
+        "tinystr 0.8.1",
+        "unicode-ident 1.0.19",
+        "utf8_iter 1.0.4",
+        "writeable 0.6.1",
+        "yoke 0.8.0",
+        "yoke-derive 0.8.0",
+        "zerofrom 0.1.6",
+        "zerofrom-derive 0.1.6",
+        "zerotrie 0.2.2",
+        "zerovec 0.11.4",
+        "zerovec-derive 0.11.1"
+      ],
+      "consumer_lock_sha256": "3802ddab6a9d38ed2228ff165244fd30ba91523522f3e7e11e276bb9225c3ab3",
+      "runtime_comparison": "Every package in the consumer URL runtime closure has the same version and registry checksum. Workspace dev dependencies are additional and are not runtime identity claims."
+    },
+    "modern": {
+      "lock": "locks/modern.lock",
+      "idna_corpus": "fixtures/IdnaTestV2-Unicode18.txt",
+      "description": "Published qualification graph: adapter 1.2.2, ICU 2.4, Unicode 18."
+    },
+    "msrv": {
+      "lock": "locks/msrv.lock",
+      "idna_corpus": "source:idna/tests/IdnaTestV2-Unicode16.txt",
+      "description": "Upstream CI 1.63 lock, only local workspace URL coordinate normalized 2.5.7 -> 2.5.8; original untouched."
+    }
+  },
+  "checksums": {
+    "findings.json": "f8de04d981b1ce46ffa9c2a15e5003850727694a1033fd6def30636283568e1d",
+    "locks/fuzz.lock": "97bd2be4700fedb2fa5e5ffaa15aa7267388e173fb68be668043dae3cf35d73c",
+    "locks/modern.lock": "56b910287a6f96e3baf1481de6d136071494c8d05c87a2b9c2443b84d07f9832",
+    "locks/borrowser.lock": "a770f264be9656bcf64db971b60c2a09ee0a542600ead12b66f52f878db154d6",
+    "locks/msrv.lock": "fa42be82955f6808f4e17355389e59b05f45c0c458dbaa644c818c019a5bd004",
+    "fixtures/LICENSE.md": "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570",
+    "fixtures/urltestdata.json": "81e85fd3c199c08ef9c34cf651b3580eeedd080316493bfaf277a6b5ff8cf652",
+    "fixtures/setters_tests.json": "62e4b14bdaddd66b0f7d99bf066aed1c4a588667f4aa97bf26da212134fc24bf",
+    "fixtures/IdnaTestV2-Unicode18.txt": "0236b75c5b20dfd857b3b5cf75509887959d6ab00d6c7bda9b7dc3df518c1fde"
+  },
+  "sources": {
+    "WPT": "https://github.com/web-platform-tests/wpt/tree/c48d58747e1f211527fb695fd60548a997fae617/url/resources",
+    "rust_channels": {
+      "stable": {
+        "date": "2026-10-15",
+        "rust": "1.99.1 (58cf8f9c3 2026-10-13)",
+        "url": "https://static.rust-lang.org/dist/channel-rust-stable.toml"
+      },
+      "beta": {
+        "date": "2026-10-18",
+        "rust": "1.100.0-beta.7 (fd8e211ae 2026-10-17)",
+        "url": "https://static.rust-lang.org/dist/channel-rust-beta.toml"
+      },
+      "nightly": {
+        "date": "2026-10-28",
+        "rust": "1.101.0-nightly (41089d07a 2026-10-27)",
+        "url": "https://static.rust-lang.org/dist/channel-rust-nightly.toml"
+      }
+    },
+    "Unicode18": {
+      "url": "https://www.unicode.org/Public/idna/latest/IdnaTestV2.txt",
+      "sha256": "0236b75c5b20dfd857b3b5cf75509887959d6ab00d6c7bda9b7dc3df518c1fde",
+      "version": "18.0.0"
+    },
+    "Unicode16": {
+      "url": "https://www.unicode.org/Public/idna/16.0.0/IdnaTestV2.txt",
+      "sha256": "ffcf59f6e97d765caa5ac8315e9511ba3b42955a554cbc431e4c016f20d25ca9",
+      "matches_source_fixture": true
+    }
+  },
+  "fuzz_regressions": [
+    "66696c653a2f783a0d2e2f0d002e2f",
+    "66696c653a2f2f2f783a0d2e",
+    "66696c653a2f783a0d2e",
+    "66696c653a2f2f686f73742f783a0d2e",
+    "66696c653a2f433a09666f6f",
+    "66696c653a2f2f2f433a0d2f2e2e",
+    "66696c653a2f2f2f783a0d0a092e",
+    "66696c653a2f2f2f433a0d0a092f2f6c656166"
+  ],
+  "source_checksums": {
+    "idna/tests/IdnaTestV2.txt": "96d889b278dc988b9106c661ef579fc2630a93311e5856176c9c702cb5e08369",
+    "idna/tests/IdnaTestV2-Unicode16.txt": "ffcf59f6e97d765caa5ac8315e9511ba3b42955a554cbc431e4c016f20d25ca9",
+    "url/tests/expected_failures.txt": "092026212c907540f462e9c8fb5ebe53e649fa25532f020530b28921ed65e91b"
+  },
+  "repository": "joris97jansen/rust-url"
+}
